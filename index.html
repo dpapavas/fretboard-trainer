@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Fretboard trainer</title>
+
+    <style>
+      body {
+          margin: 0px;
+          font-family: "Sans";
+      }
+
+      header {
+          background: #555d50;
+
+          padding-top: 10px;
+          padding-bottom: 10px;
+          margin-bottom: 2em;
+          margin-left: auto;
+          margin-right: auto;
+      }
+
+      header > h1 {
+          margin: 0;
+          text-align: center;
+          color: white;
+          font-size: 40px;
+          line-height: 50px;
+      }
+
+      header > h1 > span {
+          font-weight: normal;
+      }
+
+      #fretboard
+      {
+          position: relative;
+          width: 1280px;
+          height: 200px;
+          margin: auto;
+      }
+
+      canvas {
+          top: 0;
+          left: 0;
+          position: absolute;
+          width: 1280px;
+          height: 200px;
+      }
+
+      p {
+          width: 1280px;
+          margin-left: auto;
+          margin-right: auto;
+      }
+
+      div.preference > p > span {
+          font-weight: bold;
+          float: left;
+          width: 7em;
+      }
+
+      div.preference:not(:first-child) > p {
+          margin: 0px auto 0px auto;
+          padding: 1em 0px 1em 0px;
+      }
+
+      div.preference:nth-child(even) {
+          background-color: #efefef;
+      }
+
+      div.preference > div {
+          width: 1280px;
+          margin-left: auto;
+          margin-right: auto;
+      }
+
+      button.fret
+      {
+          position: absolute;
+          padding: 0px;
+          background: None;
+          border: 0px;
+          border-radius: 3px; 
+          animation-duration: 1s;
+          transition: all .3s ease;
+      }
+
+      button.fret:disabled
+      {
+          background: repeating-linear-gradient(
+              53deg,
+              #00000040,
+              #00000040 4px,
+              #fefe2240 5px,
+              #fefe2240 9px,
+              #00000040 10px
+          );
+          border-radius: 0px;
+          cursor: not-allowed;
+      }
+
+      button.fret:not(:disabled):hover
+      {
+          cursor: pointer;
+          background: #fefe2260;
+          box-shadow: 0px 0px 5px 5px #fefe2260;
+      }
+
+      button.fret:not(:disabled).correct {
+          transition: all 0.5s ease;
+          background: #a3cc00cc;
+          box-shadow: 0px 0px 5px 5px #a3cc00cc;
+      }
+
+      button.fret:not(:disabled).wrong {
+          transition: all 0.5s ease;
+          background: #fe2712cc;
+          box-shadow: 0px 0px 5px 5px #fe2712cc;
+      }
+
+      input[type=text] {
+          width: 2em;
+          text-align: right;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>Fretboard <span>Trainer</span></h1>
+    </header>
+
+    <p>This is a simple fretboard training application, meant to help
+      you exercise sight-reading on the guitar.  Just click the fret
+      corresponding to the displayed note on the fretboard below.  If
+      you get it right, the fret will flash green and a you'll be
+      challenged with a new note.  If you get it wrong, it will flash
+      red and you can try again.</p>
+
+    <p>If you can't find the answer,
+      click <button id="show-answer">Show answer</button>, to see what
+      it was and continue to the next note.</p>
+
+    <div id="fretboard">
+      <canvas id="fretboard-canvas" width="1280" height="200"></canvas>
+    </div>
+
+    <p>Use the options below to focus the drill on particular notes,
+      or parts of the fretboard.  Choosing the first position below
+      will include the open strings.  You can also include them in a
+      range by starting it from zero.  There may be certain
+      combinations of choices which leave no available notes to pick,
+      in which case some or all of those choices will be silently
+      ignored.</p>
+
+    <p>If you want to undo your changes, you
+      can <button id="reset-preferences">Restore the defaults</button>.</p>
+
+    <form id="preferences">
+      <div class="preference">
+        <p>
+          <span>Strings:</span>
+          <input type="radio" id="strings-choice-all" name="strings-choice" value="all" checked>
+          <label for="strings-choice-all">all</label>
+
+          <input type="radio" name="strings-choice" value="range">
+          <label for="strings-range-lower">from</label>
+          <input type="text" name="strings-range-lower" id="strings-range-lower" value="1">
+          <label for="strings-range-upper">to</label>
+          <input type="text" name="strings-range-upper" id="strings-range-upper" value="6">
+        </p>
+      </div>
+
+      <div class="preference">
+        <p>
+          <span>Frets:</span>
+          <input type="radio" id="frets-choice-all" name="frets-choice" value="all" checked>
+          <label for="frets-choice-all">all</label>
+
+          <input type="radio" name="frets-choice" value="position">
+          <input type="text" name="frets-position" id="frets-position" value="5">
+          <label for="frets-position">th position</label>
+
+          <input type="radio" name="frets-choice" value="range">
+          <label for="frets-range-lower">from</label>
+          <input type="text" name="frets-range-lower" id="frets-range-lower" value="1">
+          <label for="frets-range-upper">to</label>
+          <input type="text" name="frets-range-upper" id="frets-range-upper" value="12">
+        </p>
+      </div>
+
+      <div class="preference">
+        <p>
+          <span>Pitches:</span>
+          <input type="checkbox" id="pitches-c" name="pitches" value="1" checked>
+          <label for="pitches-c">C/Do</label>
+
+          <input type="checkbox" id="pitches-d" name="pitches" value="2" checked>
+          <label for="pitches-d">D/Re</label>
+
+          <input type="checkbox" id="pitches-e" name="pitches" value="3" checked>
+          <label for="pitches-e">E/Mi</label>
+
+          <input type="checkbox" id="pitches-f" name="pitches" value="4" checked>
+          <label for="pitches-f">F/Fa</label>
+
+          <input type="checkbox" id="pitches-g" name="pitches" value="5" checked>
+          <label for="pitches-g">G/Sol</label>
+
+          <input type="checkbox" id="pitches-a" name="pitches" value="6" checked>
+          <label for="pitches-a">A/La</label>
+
+          <input type="checkbox" id="pitches-b" name="pitches" value="0" checked>
+          <label for="pitches-b">B/Si</label>
+        </p>
+      </div>
+
+      <div class="preference">
+        <p>
+          <span>Accidentals:</span>
+          <input type="radio" id="accidentals-both" name="accidentals" value="both" checked>
+          <label for="accidentals-both">both</label>
+
+          <input type="radio" id="accidentals-sharps" name="accidentals" value="sharps">
+          <label for="accidentals-sharps">sharps</label>
+
+          <input type="radio" id="accidentals-flats" name="accidentals" value="flats">
+          <label for="accidentals-flats">flats</label>
+
+          <input type="radio" id="accidentals-none" name="accidentals" value="none">
+          <label for="accidentals-none">none</label>
+        </p>
+      </div>
+    </form>
+
+    <script>
+      "use strict";
+
+      const tuning = [5, 0, -4, -9, -14, -19];
+      const string_widths = [2.60, 2.98, 3.72, 2.79, 3.26, 4];
+      const dots = new Set([2, 4, 6, 8, 11, 14, 16, 18]);
+      const scale = 1500;
+      const nut_width = 25;
+      const neck_width = 200;
+      const fret_width = 5;
+      const fretboard_edge = 10;
+      const neck_length = nut_width + scale / 3 * 2 + fret_width + fretboard_edge;
+      const soundhole_length = 50;
+
+      var answer, fret_range, string_range, pitches, accidentals;
+      var canvas = document.getElementById("fretboard-canvas");
+
+      if (canvas.getContext) {
+          let ctx = canvas.getContext("2d");
+          var i, j, x, w;
+
+          ctx.fillStyle = "#555d50";
+          ctx.strokeStyle = "#383d35";
+          ctx.lineWidth = 5;
+          ctx.fillRect(0, 0, neck_length, neck_width);
+          ctx.strokeRect(0, 0, neck_length, neck_width);
+
+          ctx.fillStyle = "ivory";
+          ctx.strokeStyle = "tan";
+          ctx.lineWidth = 3;
+          ctx.fillRect(0, 0, nut_width, neck_width);
+          ctx.strokeRect(0, 0, nut_width, neck_width);
+
+          ctx.fillStyle = "black";
+          ctx.fillRect(neck_length, 0, soundhole_length, neck_width);
+
+          ctx.lineWidth = 2;
+          for (i = 1, x = nut_width + scale / 17.817;
+               i <= 19;
+               i += 1, x += (scale + nut_width - x) / 17.817) {
+              var gradient = ctx.createLinearGradient(x, 0, x + fret_width, 0);
+
+              gradient.addColorStop(0, "silver");
+              gradient.addColorStop(0.5, "#e5e4e2");
+              gradient.addColorStop(1, "silver");
+
+              ctx.shadowColor = "#000000ee";
+              ctx.shadowBlur = 3;
+              ctx.shadowOffsetY = 0;
+
+              ctx.fillStyle = gradient;
+              ctx.fillRect(x, 0, fret_width, neck_width);
+
+              ctx.shadowColor = "transparent";
+
+              if (dots.has(i)) {
+                  ctx.strokeStyle = "#e5e5de80";
+                  ctx.fillStyle = "ivory";
+                  ctx.beginPath();
+                  ctx.arc(x + ((scale - x) / 17.817 + fret_width) / 2, neck_width / 2,
+                          5, 0, 2 * Math.PI);
+                  ctx.fill();
+                  ctx.stroke();
+              }
+          }
+
+          var string_y = function (i) {
+              return (i + 0.5) * neck_width / 6 - string_widths[i] / 2;
+          };
+
+          for (i = 0 ; i < 6 ; i += 1) {
+              var gradient = ctx.createLinearGradient(0, string_y(i), 0,
+                                                      string_y(i) + string_widths[i]);
+
+              if (i >= 3) {
+                  gradient.addColorStop(0, "slategrey");
+                  gradient.addColorStop(0.7, "lightgrey");
+                  gradient.addColorStop(1, "slategrey");
+              } else {
+                  gradient.addColorStop(0, "rgba(240, 240, 240, .7)");
+                  gradient.addColorStop(0.7, "rgba(240, 240, 240, .2)");
+                  gradient.addColorStop(1, "rgba(240, 240, 240, .7)");
+              }
+
+              ctx.fillStyle = "tan";
+              ctx.fillRect(0, string_y(i) - 2, nut_width, string_widths[i] + 4);
+
+              ctx.fillStyle = gradient;
+              ctx.shadowColor = "#000000ee";
+              ctx.shadowBlur = 3;
+              ctx.shadowOffsetY = 0;
+              ctx.fillRect(0, string_y(i), nut_width, string_widths[i]);
+
+              if (i >= 3) {
+                  ctx.shadowColor = "rgba(0, 0, 0, .45)";
+              } else {
+                  ctx.shadowColor = "rgba(0, 0, 0, .9)";
+              }
+
+              ctx.shadowBlur = 4;
+              ctx.shadowOffsetY = 4;
+              ctx.fillRect(nut_width, string_y(i),
+                           neck_length + soundhole_length - nut_width, string_widths[i]);
+
+              ctx.shadowColor = "transparent";
+          }
+
+          for (i = 1, x = nut_width, w = scale / 17.817;
+               i <= 20;
+               i += 1, x += w, w = (scale + nut_width - x) / 17.817) {
+              for (j = 0 ; j < 6 ; j += 1) {
+                  var b = document.createElement("button");
+
+                  if (i < 20) {
+                      b.style.width = (w - fret_width * (i > 1)) + "px";
+                  } else {
+                      b.style.width = soundhole_length + "px";
+                  }
+
+                  b.style.height = neck_width / 6 + "px";
+                  b.style.left = x + fret_width * (i > 1) + fretboard_edge * (i > 19) + "px";
+                  b.style.top = string_y(j) - (neck_width / 6 - string_widths[j]) / 2 + "px";
+                  b.dataset.string = j;
+                  b.dataset.fret = i > 19 ? 0 : i;
+                  b.className = "fret";
+                  b.onclick = check_answer;
+
+                  document.getElementById("fretboard").appendChild(b);
+              }
+          }
+      }
+
+      document.querySelectorAll(".preference input").forEach(
+          function(e) {
+              e.oninput = update_preferences;
+          }
+      );
+
+      document.getElementById("reset-preferences").onclick = function() {
+          document.getElementById("preferences").reset();
+          update_preferences();
+      };
+
+      document.getElementById("show-answer").onclick = function() {
+          var i, j;
+
+          for (i = fret_range[0] ; i <= fret_range[1] ; i += 1) {
+              for (j = string_range[0] ; j <= string_range[1] ; j += 1) {
+                  if (tuning[j] + i == answer) {
+                      document.querySelector(
+                          `button.fret[data-fret="${i}"][data-string="${j}"]`
+                      ).click();
+                  }
+              }
+          }
+
+          new_challenge();
+      };
+
+      update_preferences();
+
+      function pitch_from_semitones(n) {
+          var x = ((n % 12) + 12) % 12;
+          x += (x > 5) + (x > 0);
+
+          return [Math.floor(n / 12) * 7 + Math.trunc(x / 2), x % 2];
+      }
+
+      function new_challenge() {
+          var i, pitch, accidental;
+
+          outer: while(true) {
+              let j, n;
+
+              n = Math.round(Math.random() * (25 + 19)) - 19;
+
+              [pitch, accidental] = pitch_from_semitones(n);
+
+              if (accidental) {
+                  if (accidentals == "none") {
+                      continue;
+                  } else if (accidentals == "flats" ||
+                             (accidentals == "both" && Math.random() > 0.5)) {
+                      accidental *= -1;
+                      pitch += 1;
+                  }
+              }
+
+              if (pitches.size > 0 && !pitches.has(((pitch % 7) + 7) % 7)) {
+                  continue;
+              }
+
+              for (i = fret_range[0] ; i <= fret_range[1] ; i += 1) {
+                  for (j = string_range[0] ; j <= string_range[1] ; j += 1) {
+                      if (tuning[j] + i == n) {
+                          answer = n;
+                          break outer;
+                      }
+                  }
+              }
+          }
+
+          if (canvas.getContext) {
+              const staff_width = 100;
+              let ctx = canvas.getContext("2d");
+
+              ctx.save();
+              ctx.translate((neck_length + soundhole_length + ctx.canvas.width) / 2,
+                            ctx.canvas.height / 2);
+              ctx.clearRect(-staff_width / 2, -ctx.canvas.height / 2,
+                            staff_width, ctx.canvas.height);
+
+              ctx.beginPath();
+
+              for (i = Math.min(Math.ceil(pitch / 2), -2);
+                   i <= Math.max(Math.floor(pitch / 2), 2);
+                   i += 1) {
+                  const y = -10 * i;
+                  const w_2 = staff_width / (2 * (1 + 2 * (Math.abs(i) > 2)));
+
+                  ctx.moveTo(-w_2, y);
+                  ctx.lineTo(w_2, y);
+              }
+
+              ctx.strokeStyle = "#00000070";
+              ctx.stroke();
+
+              ctx.fillStyle = "black";
+              ctx.font = "60px sans";
+              ctx.fillText("\ud834\udd5f", -10, (1 - pitch) * 5);
+
+              if(accidental) {
+                  ctx.font = "30px serif";
+                  ctx.fillText(accidental > 0 ? "\u266f" : "\u266d",
+                               -22, (1 + (accidental > 0)) * 6 - pitch * 5);
+              }
+
+              ctx.restore();
+          }
+      }
+
+      function update_preferences() {
+          var i, j, active;
+
+          switch (document.querySelector("input[name=\"strings-choice\"]:checked").value) {
+          case "all": string_range = [0, 5]; break;
+          case "range":
+              string_range = [
+                  (parseInt(document.querySelector("input[name=\"strings-range-lower\"]").value) || 1) - 1,
+                  (parseInt(document.querySelector("input[name=\"strings-range-upper\"]").value) || 6) - 1,
+              ];
+
+              break;
+          }
+
+          if (string_range[0] > string_range[1] ||
+              string_range[0] > 5 ||
+              string_range[0] < 0) {
+              string_range[0] = 0;
+          }
+
+          if (string_range[1] < string_range[0] ||
+              string_range[1] > 5 ||
+              string_range[1] < 0) {
+              string_range[1] = 5;
+          }
+
+          switch (document.querySelector("input[name=\"frets-choice\"]:checked").value) {
+          case "all": fret_range = [0, 19]; break;
+          case "position":
+              i = parseInt(document.querySelector("input[name=\"frets-position\"]").value) || 1;
+              fret_range = [i - (i == 1), i + 3];
+              break;
+          case "range":
+              fret_range = [
+                  parseInt(document.querySelector("input[name=\"frets-range-lower\"]").value) || 0,
+                  parseInt(document.querySelector("input[name=\"frets-range-upper\"]").value) || 19,
+              ];
+
+              break;
+          }
+
+          if (fret_range[0] > fret_range[1] ||
+              fret_range[0] > 19 ||
+              fret_range[0] < 0) {
+              fret_range[0] = 0;
+          }
+
+          if (fret_range[1] < fret_range[0] ||
+              fret_range[1] > 19 ||
+              fret_range[1] < 0) {
+              fret_range[1] = 19;
+          }
+
+          document.querySelectorAll("#fretboard > button.fret").forEach(
+              function(e) {
+                  e.disabled = (
+                      e.dataset.fret < fret_range[0] || e.dataset.fret > fret_range[1] ||
+                      e.dataset.string < string_range[0] || e.dataset.string > string_range[1]
+                  );
+              }
+          );
+
+          accidentals = document.querySelector("input[name=\"accidentals\"]:checked").value;
+
+          while (true) {
+              active = new Set();
+              for (i = fret_range[0] ; i <= fret_range[1] ; i += 1) {
+                  for (j = string_range[0] ; j <= string_range[1] ; j += 1) {
+                      var [p, a] = pitch_from_semitones(tuning[j] + i);
+
+                      if (!a || accidentals == "sharps" || accidentals == "both") {
+                          active.add(((p % 7) + 7) % 7);
+                      }
+
+                      if (a && (accidentals == "flats" || accidentals == "both")) {
+                          active.add((((p + 1) % 7) + 7) % 7);
+                      }
+                  }
+
+                  if (a == 0) {
+                      active.add(true);
+                  }
+              }
+
+              if (accidentals == "none" && !active.has(true)) {
+                  accidentals = "both";
+              } else {
+                  break;
+              }
+          }
+
+          pitches = new Set();
+          document.querySelectorAll("input[name=\"pitches\"]:checked").forEach(
+              function(e) {
+                  var n = parseInt(e.value);
+
+                  e.disabled = !active.has(n);
+                  if (!e.disabled && e.checked) {
+                      pitches.add(n);
+                  }
+              }
+          );
+
+          new_challenge();
+      }
+
+      function check_answer(e) {
+          const n = tuning[parseInt(e.target.dataset.string)] + parseInt(e.target.dataset.fret);
+
+          if(n == answer) {
+              e.target.classList.add("correct");
+
+              if (e.isTrusted) {
+                  new_challenge();
+              }
+          } else {
+              e.target.classList.add("wrong");
+          }
+
+          setTimeout(function() {
+              e.target.classList.remove("correct");
+              e.target.classList.remove("wrong");
+          }, 700);
+      }
+    </script>
+  </body>
+</html>
