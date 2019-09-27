@@ -361,7 +361,9 @@
                   b.dataset.string = j;
                   b.dataset.fret = i > 19 ? 0 : i;
                   b.className = "fret";
-                  b.onclick = check_answer;
+                  b.onclick = function(e) {
+                      check_answer(e.target, false);
+                  };
 
                   document.getElementById("fretboard").appendChild(b);
               }
@@ -385,9 +387,12 @@
           for (i = fret_range[0] ; i <= fret_range[1] ; i += 1) {
               for (j = string_range[0] ; j <= string_range[1] ; j += 1) {
                   if (tuning[j] + i == answer) {
-                      document.querySelector(
-                          `button.fret[data-fret="${i}"][data-string="${j}"]`
-                      ).click();
+                      check_answer(
+                          document.querySelector(
+                              `button.fret[data-fret="${i}"][data-string="${j}"]`
+                          ),
+                          true
+                      );
                   }
               }
           }
@@ -503,11 +508,47 @@
               string_range[1] = 5;
           }
 
+          document.body.onkeypress = null;
+
           switch (document.querySelector("input[name=\"frets-choice\"]:checked").value) {
           case "all": fret_range = [0, 19]; break;
           case "position":
               i = parseInt(document.querySelector("input[name=\"frets-position\"]").value) || 1;
               fret_range = [i - (i == 1), i + 3];
+
+              document.body.onkeypress = function(e) {
+                  var k, l;
+
+                  const keymap = [['4', '3', '2', '1'],
+                                  ['r', 'e', 'w', 'q'],
+                                  ['f', 'd', 's', 'a'],
+                                  ['v', 'c', 'x', 'z']];
+
+                  for (l = 0 ; l < keymap.length ; l += 1) {
+                      k = keymap[l].indexOf(event.key.toLowerCase());
+
+                      if (k >= 0) {
+                          let k_0 = fret_range[0] || 1;
+                          k += k_0;
+                          l += ((answer < (tuning[3] + k_0)) +
+                                (answer < (tuning[4] + k_0)));
+
+                          check_answer(
+                              document.querySelector(
+                                  `button.fret[data-fret="${k}"][data-string="${l}"]`
+                              ),
+                              false
+                          );
+
+                          if (typeof e.cancelable !== "boolean" || e.cancelable) {
+                              e.preventDefault();
+                          }
+
+                          return false;
+                      }
+                  }
+              };
+
               break;
           case "range":
               fret_range = [
@@ -583,22 +624,22 @@
           new_challenge();
       }
 
-      function check_answer(e) {
-          const n = tuning[parseInt(e.target.dataset.string)] + parseInt(e.target.dataset.fret);
+      function check_answer(e, highlight_only) {
+          const n = tuning[parseInt(e.dataset.string)] + parseInt(e.dataset.fret);
 
           if(n == answer) {
-              e.target.classList.add("correct");
+              e.classList.add("correct");
 
-              if (e.isTrusted) {
+              if (!highlight_only) {
                   new_challenge();
               }
           } else {
-              e.target.classList.add("wrong");
+              e.classList.add("wrong");
           }
 
           setTimeout(function() {
-              e.target.classList.remove("correct");
-              e.target.classList.remove("wrong");
+              e.classList.remove("correct");
+              e.classList.remove("wrong");
           }, 700);
       }
     </script>
