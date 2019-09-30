@@ -11,7 +11,7 @@
       }
 
       header {
-          background: #555d50;
+          background: #343e40;
 
           padding-top: 10px;
           padding-bottom: 10px;
@@ -24,12 +24,14 @@
           margin: 0;
           text-align: center;
           color: white;
-          font-size: 40px;
+          font-size: 30px;
           line-height: 50px;
       }
 
       header > h1 > span {
           font-weight: normal;
+          font-size: 50px;
+          margin-left: -0.3em;
       }
 
       #fretboard
@@ -255,8 +257,8 @@
           let ctx = canvas.getContext("2d");
           var i, j, x, w;
 
-          ctx.fillStyle = "#555d50";
-          ctx.strokeStyle = "#383d35";
+          ctx.fillStyle = "#4e4a46";
+          ctx.strokeStyle = "#231f1d";
           ctx.lineWidth = 5;
           ctx.fillRect(0, 0, neck_length, neck_width);
           ctx.strokeRect(0, 0, neck_length, neck_width);
