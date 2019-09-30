@@ -34,20 +34,16 @@
           margin-left: -0.3em;
       }
 
-      #fretboard
-      {
-          position: relative;
+      #display {
           width: 1280px;
           height: 200px;
           margin: auto;
       }
 
-      canvas {
-          top: 0;
-          left: 0;
-          position: absolute;
-          width: 1280px;
-          height: 200px;
+      #fretboard, #staff {
+          position: relative;
+          display: inline-block;
+          float:left;
       }
 
       p {
@@ -109,7 +105,7 @@
           box-shadow: 0px 0px 5px 5px #fefe2260;
       }
 
-      button.fret:not(:disabled).correct {
+      button.fret.correct.correct { /* Ducplicated to increase specificity. */
           transition: all 0.5s ease;
           background: #a3cc00cc;
           box-shadow: 0px 0px 5px 5px #a3cc00cc;
@@ -124,6 +120,16 @@
       input[type=text] {
           width: 2em;
           text-align: right;
+      }
+
+      span.key {
+          display: inline-block;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          padding: 0.15em 0.6em;
+          margin: 0.1em 0.2em;
+          box-shadow: 0 2px 0px rgba(0, 0, 0, 0.2), 0 0 0 2px #fff inset;
+          background-color: #f7f7f7;
       }
     </style>
   </head>
@@ -144,22 +150,64 @@
       click <button id="show-answer">Show answer</button>, to see what
       it was and continue to the next note.</p>
 
-    <div id="fretboard">
-      <canvas id="fretboard-canvas" width="1280" height="200"></canvas>
+    <div id="display">
+      <div id="staff">
+        <canvas id="staff-canvas" width="190" height="200"></canvas>
+      </div>
+
+      <div id="fretboard">
+        <canvas id="fretboard-canvas" width="1090" height="200"></canvas>
+      </div>
     </div>
 
     <p>Use the options below to focus the drill on particular notes,
-      or parts of the fretboard.  Choosing the first position below
-      will include the open strings.  You can also include them in a
-      range by starting it from zero.  There may be certain
-      combinations of choices which leave no available notes to pick,
-      in which case some or all of those choices will be silently
-      ignored.</p>
+      or parts of the fretboard.  When randomly picked positions are
+      selected, each picked position will be restricted to the upper
+      or lower three strings.  This allows using the
+      keys <span class="key">q</span>
+      - <span class="key">r</span>, <span class="key">a</span>
+      - <span class="key">f</span> and <span class="key">z</span>
+      - <span class="key">v</span> as shortcuts for each of the four
+      frets on each string, suitably reversed, so that they closely
+      match the arrangement on the neck of the guitar.  Apart from
+      making it easier to pick the answer, this should hopefully also
+      promote the development of muscle memory.</p>
+
+    <p>Note that there may be certain combinations of choices which
+      leave no available notes to pick, in which case some or all of
+      those choices will be silently ignored.</p>
 
     <p>If you want to undo your changes, you
       can <button id="reset-preferences">Restore the defaults</button>.</p>
 
     <form id="preferences">
+      <div class="preference">
+        <p>
+          <span>Frets:</span>
+          <input type="radio" id="frets-choice-all" name="frets-choice" value="all" checked>
+          <label for="frets-choice-all">all</label>
+
+          <input type="radio" name="frets-choice" value="range">
+          <label for="frets-range-lower">from</label>
+          <input type="text" name="frets-range-lower" id="frets-range-lower" value="1">
+          <label for="frets-range-upper">to</label>
+          <input type="text" name="frets-range-upper" id="frets-range-upper" value="12">
+
+          <input type="radio" name="frets-choice" value="position">
+          <input type="text" name="frets-position" id="frets-position" value="5">
+          <label for="frets-position">th position</label>
+
+          <input type="radio" name="frets-choice" value="position-range">
+          <label for="frets-position-range-lower">a random position between the </label>
+          <input type="text" name="frets-position-range-lower" id="frets-position-range-lower" value="1">
+          <label for="frets-position-range-upper">th and</label>
+          <input type="text" name="frets-position-range-upper" id="frets-position-range-upper" value="5">
+          <label for="frets-position-range-period">th, picked every </label>
+          <input type="text" name="frets-position-range-period" id="frets-position-range-period" value="5">
+          <label for="frets-position-range-period"> notes on average</label>
+        </p>
+      </div>
+
       <div class="preference">
         <p>
           <span>Strings:</span>
@@ -171,24 +219,6 @@
           <input type="text" name="strings-range-lower" id="strings-range-lower" value="1">
           <label for="strings-range-upper">to</label>
           <input type="text" name="strings-range-upper" id="strings-range-upper" value="6">
-        </p>
-      </div>
-
-      <div class="preference">
-        <p>
-          <span>Frets:</span>
-          <input type="radio" id="frets-choice-all" name="frets-choice" value="all" checked>
-          <label for="frets-choice-all">all</label>
-
-          <input type="radio" name="frets-choice" value="position">
-          <input type="text" name="frets-position" id="frets-position" value="5">
-          <label for="frets-position">th position</label>
-
-          <input type="radio" name="frets-choice" value="range">
-          <label for="frets-range-lower">from</label>
-          <input type="text" name="frets-range-lower" id="frets-range-lower" value="1">
-          <label for="frets-range-upper">to</label>
-          <input type="text" name="frets-range-upper" id="frets-range-upper" value="12">
         </p>
       </div>
 
@@ -250,11 +280,13 @@
       const neck_length = nut_width + scale / 3 * 2 + fret_width + fretboard_edge;
       const soundhole_length = 50;
 
-      var answer, fret_range, string_range, pitches, accidentals;
-      var canvas = document.getElementById("fretboard-canvas");
+      var answer, fret_range, position_change_period, string_range, pitches, accidentals;
 
-      if (canvas.getContext) {
-          let ctx = canvas.getContext("2d");
+      const fretboard_canvas = document.getElementById("fretboard-canvas");
+      const staff_canvas = document.getElementById("staff-canvas");
+
+      if (fretboard_canvas.getContext) {
+          let ctx = fretboard_canvas.getContext("2d");
           var i, j, x, w;
 
           ctx.fillStyle = "#4e4a46";
@@ -443,13 +475,12 @@
               }
           }
 
-          if (canvas.getContext) {
+          if (staff_canvas.getContext) {
               const staff_width = 100;
-              let ctx = canvas.getContext("2d");
+              let ctx = staff_canvas.getContext("2d");
 
               ctx.save();
-              ctx.translate((neck_length + soundhole_length + ctx.canvas.width) / 2,
-                            ctx.canvas.height / 2);
+              ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
               ctx.clearRect(-staff_width / 2, -ctx.canvas.height / 2,
                             staff_width, ctx.canvas.height);
 
@@ -483,7 +514,90 @@
       }
 
       function update_preferences() {
-          var i, j, active;
+          var i, j, active, disable_string_controls;
+
+          document.body.onkeypress = null;
+          disable_string_controls = false;
+          position_change_period = 0;
+
+          switch (document.querySelector("input[name=\"frets-choice\"]:checked").value) {
+          case "all": fret_range = [0, 19]; break;
+          case "position-range":
+              i = Math.round(Math.random());
+
+              document.querySelector("input[name=\"strings-range-lower\"]").value = i * 3 + 1;
+              document.querySelector("input[name=\"strings-range-upper\"]").value = (i + 1) * 3;
+              document.querySelector("input[name=\"strings-choice\"][value=\"range\"]").checked = true;
+              disable_string_controls = true;
+
+              position_change_period = parseInt(document.querySelector("input[name=\"frets-position-range-period\"]").value) || 10;
+
+              i = parseInt(document.querySelector("input[name=\"frets-position-range-lower\"]").value) || 1;
+              j = parseInt(document.querySelector("input[name=\"frets-position-range-upper\"]").value) || 5;
+
+              if (j < i) {
+                  j = i;
+              }
+
+              document.querySelector("input[name=\"frets-position\"]").value = Math.round(
+                  Math.random() * (j - i) + i
+              );
+
+              document.body.onkeypress = function(e) {
+                  var k, l;
+
+                  const keymap = [['r', 'e', 'w', 'q'],
+                                  ['f', 'd', 's', 'a'],
+                                  ['v', 'c', 'x', 'z']];
+
+                  for (l = 0 ; l < keymap.length ; l += 1) {
+                      k = keymap[l].indexOf(event.key.toLowerCase());
+
+                      if (k >= 0) {
+                          k += fret_range[0] || 1;
+                          l += string_range[0];
+
+                          check_answer(
+                              document.querySelector(
+                                  `button.fret[data-fret="${k}"][data-string="${l}"]`
+                              ),
+                              false
+                          );
+
+                          if (typeof e.cancelable !== "boolean" || e.cancelable) {
+                              e.preventDefault();
+                          }
+
+                          return false;
+                      }
+                  }
+              };
+
+          case "position":
+              i = parseInt(document.querySelector("input[name=\"frets-position\"]").value) || 1;
+              fret_range = [i, i + 3];
+
+              break;
+          case "range":
+              fret_range = [
+                  parseInt(document.querySelector("input[name=\"frets-range-lower\"]").value) || 0,
+                  parseInt(document.querySelector("input[name=\"frets-range-upper\"]").value) || 19,
+              ];
+
+              break;
+          }
+
+          if (fret_range[0] > fret_range[1] ||
+              fret_range[0] > 19 ||
+              fret_range[0] < 0) {
+              fret_range[0] = 0;
+          }
+
+          if (fret_range[1] < fret_range[0] ||
+              fret_range[1] > 19 ||
+              fret_range[1] < 0) {
+              fret_range[1] = 19;
+          }
 
           switch (document.querySelector("input[name=\"strings-choice\"]:checked").value) {
           case "all": string_range = [0, 5]; break;
@@ -508,68 +622,11 @@
               string_range[1] = 5;
           }
 
-          document.body.onkeypress = null;
-
-          switch (document.querySelector("input[name=\"frets-choice\"]:checked").value) {
-          case "all": fret_range = [0, 19]; break;
-          case "position":
-              i = parseInt(document.querySelector("input[name=\"frets-position\"]").value) || 1;
-              fret_range = [i - (i == 1), i + 3];
-
-              document.body.onkeypress = function(e) {
-                  var k, l;
-
-                  const keymap = [['4', '3', '2', '1'],
-                                  ['r', 'e', 'w', 'q'],
-                                  ['f', 'd', 's', 'a'],
-                                  ['v', 'c', 'x', 'z']];
-
-                  for (l = 0 ; l < keymap.length ; l += 1) {
-                      k = keymap[l].indexOf(event.key.toLowerCase());
-
-                      if (k >= 0) {
-                          let k_0 = fret_range[0] || 1;
-                          k += k_0;
-                          l += ((answer < (tuning[3] + k_0)) +
-                                (answer < (tuning[4] + k_0)));
-
-                          check_answer(
-                              document.querySelector(
-                                  `button.fret[data-fret="${k}"][data-string="${l}"]`
-                              ),
-                              false
-                          );
-
-                          if (typeof e.cancelable !== "boolean" || e.cancelable) {
-                              e.preventDefault();
-                          }
-
-                          return false;
-                      }
-                  }
-              };
-
-              break;
-          case "range":
-              fret_range = [
-                  parseInt(document.querySelector("input[name=\"frets-range-lower\"]").value) || 0,
-                  parseInt(document.querySelector("input[name=\"frets-range-upper\"]").value) || 19,
-              ];
-
-              break;
-          }
-
-          if (fret_range[0] > fret_range[1] ||
-              fret_range[0] > 19 ||
-              fret_range[0] < 0) {
-              fret_range[0] = 0;
-          }
-
-          if (fret_range[1] < fret_range[0] ||
-              fret_range[1] > 19 ||
-              fret_range[1] < 0) {
-              fret_range[1] = 19;
-          }
+          document.querySelectorAll("input[name=\"strings-choice\"]").forEach(
+              function(e) {
+                  e.disabled = disable_string_controls;
+              }
+          );
 
           document.querySelectorAll("#fretboard > button.fret").forEach(
               function(e) {
@@ -583,10 +640,12 @@
           accidentals = document.querySelector("input[name=\"accidentals\"]:checked").value;
 
           while (true) {
+              let p, a;
+
               active = new Set();
               for (i = fret_range[0] ; i <= fret_range[1] ; i += 1) {
                   for (j = string_range[0] ; j <= string_range[1] ; j += 1) {
-                      var [p, a] = pitch_from_semitones(tuning[j] + i);
+                      [p, a] = pitch_from_semitones(tuning[j] + i);
 
                       if (!a || accidentals == "sharps" || accidentals == "both") {
                           active.add(((p % 7) + 7) % 7);
@@ -631,7 +690,12 @@
               e.classList.add("correct");
 
               if (!highlight_only) {
-                  new_challenge();
+                  if (position_change_period &&
+                      Math.random() < (1 / position_change_period)) {
+                      update_preferences();
+                  } else {
+                      new_challenge();
+                  }
               }
           } else {
               e.classList.add("wrong");
