@@ -35,19 +35,17 @@
       }
 
       #display {
-          width: 1280px;
-          height: 200px;
+          width: 1200px;
           margin: auto;
       }
 
       #fretboard, #staff {
           position: relative;
-          display: inline-block;
-          float:left;
+          margin: 1em 0;
       }
 
       p {
-          width: 1280px;
+          width: 1200px;
           margin-left: auto;
           margin-right: auto;
       }
@@ -68,7 +66,7 @@
       }
 
       div.preference > div {
-          width: 1280px;
+          width: 1200px;
           margin-left: auto;
           margin-right: auto;
       }
@@ -151,12 +149,12 @@
       it was and continue to the next note.</p>
 
     <div id="display">
-      <div id="staff">
-        <canvas id="staff-canvas" width="190" height="200"></canvas>
+      <div id="fretboard">
+        <canvas id="fretboard-canvas" width="1200" height="200"></canvas>
       </div>
 
-      <div id="fretboard">
-        <canvas id="fretboard-canvas" width="1090" height="200"></canvas>
+      <div id="staff">
+        <canvas id="staff-canvas" width="1200" height="200"></canvas>
       </div>
     </div>
 
@@ -272,7 +270,7 @@
       const tuning = [5, 0, -4, -9, -14, -19];
       const string_widths = [2.60, 2.98, 3.72, 2.79, 3.26, 4];
       const dots = new Set([2, 4, 6, 8, 11, 14, 16, 18]);
-      const scale = 1500;
+      const scale = 1665;
       const nut_width = 25;
       const neck_width = 200;
       const fret_width = 5;
@@ -281,6 +279,7 @@
       const soundhole_length = 50;
 
       var answer, fret_range, position_change_period, string_range, pitches, accidentals;
+      var staff_position;
 
       const fretboard_canvas = document.getElementById("fretboard-canvas");
       const staff_canvas = document.getElementById("staff-canvas");
@@ -307,7 +306,7 @@
           ctx.lineWidth = 2;
           for (i = 1, x = nut_width + scale / 17.817;
                i <= 19;
-               i += 1, x += (scale + nut_width - x) / 17.817) {
+               i += 1, x += (scale - x) / 17.817) {
               var gradient = ctx.createLinearGradient(x, 0, x + fret_width, 0);
 
               gradient.addColorStop(0, "silver");
@@ -377,7 +376,7 @@
 
           for (i = 1, x = nut_width, w = scale / 17.817;
                i <= 20;
-               i += 1, x += w, w = (scale + nut_width - x) / 17.817) {
+               i += 1, x += w, w = (scale - x) / 17.817) {
               for (j = 0 ; j < 6 ; j += 1) {
                   var b = document.createElement("button");
 
@@ -404,13 +403,15 @@
 
       document.querySelectorAll(".preference input").forEach(
           function(e) {
-              e.oninput = update_preferences;
+              e.oninput = function() {
+                  update_preferences(true);
+              };
           }
       );
 
       document.getElementById("reset-preferences").onclick = function() {
           document.getElementById("preferences").reset();
-          update_preferences();
+          update_preferences(true);
       };
 
       document.getElementById("show-answer").onclick = function() {
@@ -429,10 +430,10 @@
               }
           }
 
-          new_challenge();
+          new_challenge(false);
       };
 
-      update_preferences();
+      update_preferences(true);
 
       function pitch_from_semitones(n) {
           var x = ((n % 12) + 12) % 12;
@@ -441,7 +442,7 @@
           return [Math.floor(n / 12) * 7 + Math.trunc(x / 2), x % 2];
       }
 
-      function new_challenge() {
+      function new_challenge(reset_staff) {
           var i, pitch, accidental;
 
           outer: while(true) {
@@ -476,21 +477,46 @@
           }
 
           if (staff_canvas.getContext) {
-              const staff_width = 100;
-              let ctx = staff_canvas.getContext("2d");
+              const advance = 40;
+              let redraw, ctx = staff_canvas.getContext("2d");
 
               ctx.save();
-              ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
-              ctx.clearRect(-staff_width / 2, -ctx.canvas.height / 2,
-                            staff_width, ctx.canvas.height);
+              ctx.fillStyle = "black";
+              ctx.font = "60px sans";
+              ctx.translate(0, ctx.canvas.height / 2);
 
+              if(accidental) {
+                  staff_position += 37;
+              } else {
+                  staff_position += 25;
+              }
+
+              redraw = reset_staff || !staff_position || staff_position > ctx.canvas.width;
+
+              if (redraw) {
+                  ctx.clearRect(0, -ctx.canvas.height / 2,
+                                ctx.canvas.width, ctx.canvas.height);
+                  ctx.fillText("\ud834\udd1e", 0, 20);
+
+                  staff_position = 70;
+              }
+
+              ctx.translate(staff_position, 0);
               ctx.beginPath();
 
               for (i = Math.min(Math.ceil(pitch / 2), -2);
                    i <= Math.max(Math.floor(pitch / 2), 2);
                    i += 1) {
                   const y = -10 * i;
-                  const w_2 = staff_width / (2 * (1 + 2 * (Math.abs(i) > 2)));
+                  let w_2;
+
+                  if (Math.abs(i) > 2) {
+                      w_2 = 12;
+                  } else if (redraw) {
+                      w_2 = ctx.canvas.width;
+                  } else {
+                      continue;
+                  }
 
                   ctx.moveTo(-w_2, y);
                   ctx.lineTo(w_2, y);
@@ -499,8 +525,6 @@
               ctx.strokeStyle = "#00000070";
               ctx.stroke();
 
-              ctx.fillStyle = "black";
-              ctx.font = "60px sans";
               ctx.fillText("\ud834\udd5f", -10, (1 - pitch) * 5);
 
               if(accidental) {
@@ -513,7 +537,7 @@
           }
       }
 
-      function update_preferences() {
+      function update_preferences(reset_staff) {
           var i, j, active, disable_string_controls;
 
           document.body.onkeypress = null;
@@ -680,7 +704,7 @@
               }
           );
 
-          new_challenge();
+          new_challenge(reset_staff);
       }
 
       function check_answer(e, highlight_only) {
@@ -692,9 +716,9 @@
               if (!highlight_only) {
                   if (position_change_period &&
                       Math.random() < (1 / position_change_period)) {
-                      update_preferences();
+                      update_preferences(false);
                   } else {
-                      new_challenge();
+                      new_challenge(false);
                   }
               }
           } else {
