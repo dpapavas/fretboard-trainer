@@ -181,6 +181,12 @@
     <form id="preferences">
       <div class="preference">
         <p>
+          <span>Key:</span><select id="key-choice" name="key-choice"></select>
+        </p>
+      </div>
+
+      <div class="preference">
+        <p>
           <span>Frets:</span>
           <input type="radio" id="frets-choice-all" name="frets-choice" value="all" checked>
           <label for="frets-choice-all">all</label>
@@ -279,7 +285,7 @@
       const soundhole_length = 50;
 
       var answer, fret_range, position_change_period, string_range, pitches, accidentals;
-      var staff_position;
+      var signature, bar_signature, note_count, staff_position;
 
       const fretboard_canvas = document.getElementById("fretboard-canvas");
       const staff_canvas = document.getElementById("staff-canvas");
@@ -292,6 +298,8 @@
       const sharp_path = new Path2D("M -15.236,4.514 L -15.236,-2.307 L -12.336,-3.107 L -12.336,3.679 L -15.236,4.514 z M -9.526,2.864 L -11.52,3.435 L -11.52,-3.351 L -9.526,-3.908 L -9.526,-6.726 L -11.52,-6.17 L -11.52,-13.103 L -12.336,-13.103 L -12.336,-5.959 L -15.236,-5.126 L -15.236,-11.868 L -16.006,-11.868 L -16.006,-4.869 L -18.0,-4.311 L -18.0,-1.486 L -16.006,-2.043 L -16.006,4.73 L -18.0,5.285 L -18.0,8.098 L -16.006,7.542 L -16.006,14.436 L -15.236,14.436 L -15.236,7.295 L -12.336,6.498 L -12.336,13.205 L -11.52,13.205 L -11.52,6.245 L -9.526,5.687 L -9.526,2.864 z ");
 
       const flat_path = new Path2D("M -11.689,-1.653 C -11.689,-0.705 -12.044,0.204 -13.020,1.424 C -14.054,2.716 -14.924,3.455 -16.071,4.325 L -16.071,-1.338 C -15.810,-1.997 -15.426,-2.530 -14.916,-2.939 C -14.408,-3.346 -13.893,-3.551 -13.372,-3.551 C -12.510,-3.551 -11.964,-3.063 -11.728,-2.089 C -11.702,-2.010 -11.689,-1.865 -11.689,-1.653 z M -11.812,-5.613 C -12.524,-5.613 -13.246,-5.417 -13.982,-5.023 C -14.718,-4.630 -15.414,-4.104 -16.071,-3.449 L -16.071,-15.447 L -17.000,-15.447 L -17.000,5.104 C -17.000,5.684 -16.842,5.975 -16.525,5.975 C -16.342,5.975 -16.114,5.821 -15.774,5.618 C -14.812,5.044 -14.212,4.660 -13.560,4.255 C -12.816,3.793 -11.979,3.254 -10.872,2.198 C -10.108,1.430 -9.555,0.657 -9.212,-0.122 C -8.870,-0.903 -8.699,-1.675 -8.699,-2.442 C -8.699,-3.577 -9.001,-4.384 -9.605,-4.861 C -10.288,-5.363 -11.025,-5.613 -11.812,-5.613 z");
+
+      const natural_path = new Path2D("M -17.334,-13.792 C -17.352,-13.802 -11.526,14.817 -11.489,11.262 L -11.450,7.550 L -11.800,7.556 C -11.992,7.560 -12.892,7.733 -13.800,7.941 C -15.992,8.443 -16.415,8.485 -16.676,8.224 C -16.901,7.999 -16.906,7.876 -17.103,-3.900 C -17.235,-11.731 -17.229,-14.231 -17.080,-14.380 C -16.929,-14.531 -16.255,-14.536 -15.980,-14.389 C -15.775,-14.279 -15.773,-14.238 -15.811,-10.564 L -15.850,-6.850 L -15.500,-6.856 C -15.307,-6.860 -14.408,-7.033 -13.500,-7.241 C -11.317,-7.741 -10.884,-7.784 -10.628,-7.528 C -10.365,-7.265 -10.335,-6.393 -10.184,5.468 C -10.085,13.203 -10.087,14.914 -10.194,15.043 C -10.346,15.226 -11.051,15.251 -11.339,15.084 z M -14.434,4.447 C -13.077,4.130 -11.701,3.800 -11.487,3.740 C -11.359,3.704 -11.310,3.514 -11.264,2.872 C -11.177,1.674 -11.138,-3.972 -11.216,-4.049 C -11.253,-4.086 -11.995,-3.948 -12.866,-3.743 C -13.737,-3.538 -14.765,-3.297 -15.150,-3.207 L -15.850,-3.043 L -15.914,-2.447 C -15.949,-2.119 -15.983,-0.376 -15.989,1.425 L -16.000,4.700 L -15.759,4.700 C -15.626,4.700 -15.030,4.586 -14.434,4.447 z");
 
       if (fretboard_canvas.getContext) {
           let ctx = fretboard_canvas.getContext("2d");
@@ -410,7 +418,7 @@
           }
       }
 
-      document.querySelectorAll(".preference input").forEach(
+      document.querySelectorAll(".preference input, .preference select").forEach(
           function(e) {
               e.oninput = function() {
                   update_preferences(true);
@@ -442,6 +450,42 @@
           new_challenge(false);
       };
 
+      {
+          const name = ['B', 'C', 'D', 'E', 'F', 'G', 'A'];
+          const mode = [' Major', ' minor'];
+          const intonation = ['', '\u266f', '\u266d'];
+
+          let el;
+
+          el = document.getElementById("key-choice");
+
+          for (j = -7 ; j <= 7 ; j += 1) {
+              let s, option;
+
+              for (i = 0, s = [] ; i < 2 ; i += 1) {
+                  let p, a;
+
+                  [p, a] = pitch_from_semitones(
+                      (i == 0 ? 1 : 10) + (j > 0 ? j * 7 : Math.abs(j) * 5)
+                  );
+
+                  if (a == 1 && j < 0) {
+                      p += 1;
+                      a += 1;
+                  }
+
+                  s[i] = name[p % 7] + intonation[a] + mode[i];
+              }
+
+              option = document.createElement("option");
+              option.text = s[0] + "/" + s[1];
+              option.value = j;
+              option.selected = (j == 0);
+
+              el.add(option);
+          }
+      }
+
       update_preferences(true);
 
       function pitch_from_semitones(n) {
@@ -451,27 +495,58 @@
           return [Math.floor(n / 12) * 7 + Math.trunc(x / 2), x % 2];
       }
 
+      function pitch_class(n) {
+          return ((n % 7) + 7) % 7;
+      }
+
       function new_challenge(reset_staff) {
-          var i, pitch, accidental;
+          const notes_per_bar = 4;
+          var i, pitch, sharp, accidental, new_bar;
+
+          if (reset_staff) {
+              note_count = 0;
+          } else {
+              note_count += 1;
+          }
+
+          new_bar = (note_count % notes_per_bar == 0);
+
+          if (new_bar) {
+              bar_signature = new Map(signature);
+          }
 
           outer: while(true) {
               let j, n;
 
               n = Math.round(Math.random() * (25 + 19)) - 19;
 
-              [pitch, accidental] = pitch_from_semitones(n);
+              [pitch, sharp] = pitch_from_semitones(n);
 
-              if (accidental) {
-                  if (accidentals == "none") {
-                      continue;
-                  } else if (accidentals == "flats" ||
-                             (accidentals == "both" && Math.random() > 0.5)) {
-                      accidental *= -1;
+              if (bar_signature.get(pitch_class(pitch)) > 0) {
+                  accidental = sharp ? null : 0;
+              } else if (sharp && bar_signature.get(pitch_class(pitch + 1)) < 0) {
+                  pitch += 1;
+                  accidental = null;
+              } else if (bar_signature.get(pitch_class(pitch)) < 0) {
+                  if (sharp) {
                       pitch += 1;
+                      accidental = -sharp;
+                  } else {
+                      accidental = 0;
                   }
+              } else if (sharp && (accidentals == "flats" ||
+                                   (accidentals == "both" && Math.random() > 0.5))) {
+                  accidental = -sharp;
+                  pitch += 1;
+              } else {
+                  accidental = sharp || null;
               }
 
-              if (pitches.size > 0 && !pitches.has(((pitch % 7) + 7) % 7)) {
+              if (accidental != null && accidentals == "none") {
+                  continue;
+              }
+
+              if (pitches.size > 0 && !pitches.has(pitch_class(pitch))) {
                   continue;
               }
 
@@ -485,8 +560,11 @@
               }
           }
 
+          if (accidental != null) {
+              bar_signature.set(pitch_class(pitch), accidental);
+          }
+
           if (staff_canvas.getContext) {
-              const advance = 40;
               let redraw, ctx = staff_canvas.getContext("2d");
 
               ctx.save();
@@ -495,24 +573,51 @@
               ctx.font = "60px sans";
               ctx.translate(0, ctx.canvas.height / 2);
 
-              if(accidental) {
-                  staff_position += 37;
-              } else {
+              if(accidental == null) {
                   staff_position += 25;
+              } else {
+                  staff_position += 37;
+              }
+
+              if (new_bar) {
+                  staff_position += 12;
               }
 
               redraw = (reset_staff || !staff_position ||
-                        (staff_position + 37) > ctx.canvas.width);
+                        new_bar && (staff_position + notes_per_bar * 37) > ctx.canvas.width);
 
               if (redraw) {
+                  let it, v;
+
                   ctx.clearRect(0, -ctx.canvas.height / 2,
                                 ctx.canvas.width, ctx.canvas.height);
                   ctx.fill(clef_path);
 
-                  staff_position = 70;
+                  it = signature.entries();
+                  for (i = 0, v = it.next().value ; i < signature.size ; i +=1, v = it.next().value){
+                      ctx.save();
+                      ctx.translate(50 + i * 12, -v[0] * 5);
+                      ctx.fill(v[1] > 0 ? sharp_path : flat_path);
+                      ctx.restore();
+                  }
+
+                  staff_position = 60 + signature.size * 12;
+                  note_count = 0;
               }
 
               ctx.translate(staff_position, 0);
+
+              if (new_bar) {
+                  if (note_count > 0) {
+                      const x = accidental == null ? -17 : -27;
+
+                      ctx.beginPath();
+                      ctx.moveTo(x, -20);
+                      ctx.lineTo(x, 20);
+                      ctx.stroke();
+                  }
+              }
+
               ctx.beginPath();
 
               for (i = Math.min(Math.ceil(pitch / 2), -2);
@@ -548,8 +653,8 @@
               ctx.lineTo(6.24, -3.6 - 34.65);
               ctx.stroke();
 
-              if(accidental) {
-                  ctx.fill(accidental > 0 ? sharp_path : flat_path);
+              if(accidental != null) {
+                  ctx.fill([flat_path, natural_path, sharp_path][accidental + 1]);
               }
 
               ctx.restore();
@@ -557,11 +662,30 @@
       }
 
       function update_preferences(reset_staff) {
-          var i, j, active, disable_string_controls;
+          var i, j, n, active, disable_string_controls;
 
           document.body.onkeypress = null;
           disable_string_controls = false;
           position_change_period = 0;
+
+          signature = new Map();
+          n = parseInt(document.getElementById("key-choice").value);
+
+          for (i = 0 ; i < Math.abs(n) ; i += 1) {
+              let p;
+
+              p = pitch_from_semitones(
+                  n > 0 ? 6 + i * 7 : i * 5
+              )[0];
+
+              p %= 7;
+
+              if (p > (n > 0 ? 5 : 3)) {
+                  p -= 7;
+              }
+
+              signature.set(p % 7, n > 0 ? 1 : -1);
+          }
 
           switch (document.querySelector("input[name=\"frets-choice\"]:checked").value) {
           case "all": fret_range = [0, 19]; break;
@@ -573,7 +697,9 @@
               document.querySelector("input[name=\"strings-choice\"][value=\"range\"]").checked = true;
               disable_string_controls = true;
 
-              position_change_period = parseInt(document.querySelector("input[name=\"frets-position-range-period\"]").value) || 10;
+              position_change_period = parseInt(
+                  document.querySelector("input[name=\"frets-position-range-period\"]").value
+              ) || 10;
 
               i = parseInt(document.querySelector("input[name=\"frets-position-range-lower\"]").value) || 1;
               j = parseInt(document.querySelector("input[name=\"frets-position-range-upper\"]").value) || 5;
@@ -691,11 +817,11 @@
                       [p, a] = pitch_from_semitones(tuning[j] + i);
 
                       if (!a || accidentals == "sharps" || accidentals == "both") {
-                          active.add(((p % 7) + 7) % 7);
+                          active.add(pitch_class(p));
                       }
 
                       if (a && (accidentals == "flats" || accidentals == "both")) {
-                          active.add((((p + 1) % 7) + 7) % 7);
+                          active.add(pitch_class(p + 1));
                       }
                   }
 
